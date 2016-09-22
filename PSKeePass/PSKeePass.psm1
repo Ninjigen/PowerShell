@@ -148,7 +148,7 @@ Function Get-KeePass {
         }
         New-Object -TypeName PSCustomObject -Property $Property
     } | Where-Object {
-        (($_.UUID -eq $UUID) -or (-not $UUID)) -and (($_.Title -eq $Title) -or (-not $Title)) -and (($_.UserName -eq $UserName) -or (-not $UserName)) -and (($_.GUID -eq $GUID) -or (-not $GUID))
+        (($_.UUID -eq $UUID) -or (-not $UUID)) -and (($_.Title -eq $Title) -or (-not $Title)) -and (($_.UserName -eq $UserName) -or (-not $UserName)) -and (($_.GUID -eq $GUID) -or (-not $GUID)) -and (($_.Group -eq $Group) -or (-not $Group))
     }
     $DatabaseObject.Close()
 }
@@ -171,16 +171,16 @@ Function ConvertTo-PSCredential {
     }
     process {
         $Input | Foreach-Object {
-            if (($_.UserName -like '*\*') -or (-not $_.Domain) -or (-not $_.ADDomain)) {
+            if (($_.UserName -like '*\*') -or ((-not $_.Domain) -and (-not $_.ADDomain))) {
                 $UserName = $_.UserName
-                $Password = $_.Password
             } else {
                 if ($_.Domain) {
                     $UserName = "{0}\{1}" -f $_.Domain.trim('\'),$_.UserName.trim('\')
-                } else {
+                } elseif ($_.ADDomain) {
                     $UserName = "{0}\{1}" -f $_.ADDomain.trim('\'),$_.UserName.trim('\')
                 }
             }
+            $Password = $_.Password
             New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($UserName, $Password)
         }
     }
@@ -188,3 +188,8 @@ Function ConvertTo-PSCredential {
 
     }
 }
+
+Export-ModuleMember -Function "Import-KeePass"
+Export-ModuleMember -Variable "KeePassFolder"
+Export-ModuleMember -Function "Get-KeePass"
+Export-ModuleMember -Function "ConvertTo-PSCredential"
