@@ -69,6 +69,12 @@ Describe "Get-KeePass" {
             $_.Password.GetType().Name | Should be "SecureString"
         }
     }
+    It "finds custom properties" {
+        $RootEntry3 = Get-KeePass -Database $KeyFileProtectedDatabase -KeyFile $KeyFile -UUID "60F6F2F1FA883D4E9E04D85BBFC8B05A"
+        $RootEntry3.key1 | Should be "Value1"
+        $RootEntry3.key2 | Should be "Value2"
+        $RootEntry3.key3 | Should be "Value3"
+    }
 }
 
 
