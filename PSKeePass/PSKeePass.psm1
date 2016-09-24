@@ -23,6 +23,58 @@ Function Import-KeePass {
     }
 }
 
+Function New-KeePassDatabaseObject {
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Database,
+        [Parameter(Mandatory=$False)]
+        [SecureString]$Password,
+        [Parameter(Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credential,        
+        [Parameter(Mandatory=$False)]
+        [String]$KeyFile,
+        [switch]$UseWindowsAccount
+    )
+    $DatabaseItem = Get-Item $Database -ErrorAction Stop
+    try {
+        $DatabaseObject = New-Object KeepassLib.PwDatabase -ErrorAction Stop
+    } catch {
+        Import-KeePass -ErrorAction Stop
+        $DatabaseObject = New-Object KeepassLib.PwDatabase
+    }
+    $CompositeKey = New-Object KeepassLib.Keys.CompositeKey
+    if ($Credential.Password) {
+        $CompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpPassword([System.Runtime.InteropServices.Marshal]::PtrToStringUni([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($credential.Password)))))
+    }
+    if ($Password) {
+        $CompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpPassword([System.Runtime.InteropServices.Marshal]::PtrToStringUni([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)))))
+    }
+    if ($UseWindowsAccount) {
+        $CompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpUserAccount))
+    }
+    if ((-not $Password) -and (-not $Credential.Password) -and (-not $KeyFile) -and (-not $UseWindowsAccount)) {
+        $Credential = Get-Credential
+    }
+    if ($KeyFile) {
+        try {
+            $KeyFileItem = Get-Item $KeyFile -ErrorAction Stop
+            Write-Verbose $KeyFileItem.FullName
+            $CompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpKeyfile($KeyFileItem.FullName)))
+        } catch {
+            Write-Warning ("could not read Key file {0}" -f $KeyFileItem.FullName)
+        }
+    }
+
+    $IOInfo = New-Object KeepassLib.Serialization.IOConnectionInfo
+    $IOInfo.Path = $DatabaseItem.FullName
+
+    $IStatusLogger = New-Object KeePassLib.Interfaces.NullStatusLogger
+
+    $DatabaseObject.Open($IOInfo,$CompositeKey,$IStatusLogger) | Out-Null
+
+    $DatabaseObject
+}
+
 Function Get-KeePass {
     <#
         .SYNOPSIS
@@ -86,42 +138,16 @@ Function Get-KeePass {
         [Parameter(Mandatory=$False)]
         [String]$GUID
     )
-    $DatabaseItem = Get-Item $Database -ErrorAction Stop
-    try {
-        $DatabaseObject = New-Object KeepassLib.PwDatabase -ErrorAction Stop
-    } catch {
-        Import-KeePass -ErrorAction Stop
-        $DatabaseObject = New-Object KeepassLib.PwDatabase
+    $NewDatabasePSBoundParameters = $PSBoundParameters
+    if ($UUID) {$NewDatabasePSBoundParameters.remove('UUID') | Out-Null}
+    if ($Title) {$NewDatabasePSBoundParameters.remove('Title') | Out-Null}
+    if ($UserName) {$NewDatabasePSBoundParameters.remove('UserName') | Out-Null}
+    if ($Group) {$NewDatabasePSBoundParameters.remove('Group') | Out-Null}
+    if ($GUID) {$NewDatabasePSBoundParameters.remove('GUID') | Out-Null}
+    $DatabaseObject = New-KeePassDatabaseObject @NewDatabasePSBoundParameters
+    if (-not $DatabaseObject.IsOpen) {
+        throw "InvalidDatabaseObjectException : could not open the database with provided parameters"
     }
-    $CompositeKey = New-Object KeepassLib.Keys.CompositeKey
-    if ($Credential.Password) {
-        $CompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpPassword([System.Runtime.InteropServices.Marshal]::PtrToStringUni([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($credential.Password)))))
-    }
-    if ($Password) {
-        $CompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpPassword([System.Runtime.InteropServices.Marshal]::PtrToStringUni([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)))))
-    }
-    if ($UseWindowsAccount) {
-        $CompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpUserAccount))
-    }
-    if ((-not $Password) -and (-not $Credential.Password) -and (-not $KeyFile) -and (-not $UseWindowsAccount)) {
-        $Credential = Get-Credential
-    }
-    if ($KeyFile) {
-        try {
-            $KeyFileItem = Get-Item $KeyFile -ErrorAction Stop
-            Write-Verbose $KeyFileItem.FullName
-            $CompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpKeyfile($KeyFileItem.FullName)))
-        } catch {
-            Write-Warning ("could not read Key file {0}" -f $KeyFileItem.FullName)
-        }
-    }
-
-    $IOInfo = New-Object KeepassLib.Serialization.IOConnectionInfo
-    $IOInfo.Path = $DatabaseItem.FullName
-
-    $IStatusLogger = New-Object KeePassLib.Interfaces.NullStatusLogger
-
-    $DatabaseObject.Open($IOInfo,$CompositeKey,$IStatusLogger)
     $DatabaseObject.RootGroup.getEntries($true) |Foreach-Object {
         $DatabaseEntry = $_
         $Property = [ordered]@{}
@@ -150,7 +176,7 @@ Function Get-KeePass {
     } | Where-Object {
         (($_.UUID -eq $UUID) -or (-not $UUID)) -and (($_.Title -eq $Title) -or (-not $Title)) -and (($_.UserName -eq $UserName) -or (-not $UserName)) -and (($_.GUID -eq $GUID) -or (-not $GUID)) -and (($_.Group -eq $Group) -or (-not $Group))
     }
-    $DatabaseObject.Close()
+    $DatabaseObject.Close() | Out-Null
 }
 
 Function ConvertTo-PSCredential {
@@ -187,6 +213,94 @@ Function ConvertTo-PSCredential {
     end {
 
     }
+}
+
+Function Add-KeepassEntry {
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Database,
+        [Parameter(Mandatory=$False)]
+        [SecureString]$Password,
+        [Parameter(Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credential,        
+        [Parameter(Mandatory=$False)]
+        [String]$KeyFile,
+        [switch]$UseWindowsAccount,
+        [Parameter(Mandatory=$False)]
+        [Hashtable]$Property,
+        [Parameter(Mandatory=$False)]
+        [String]$EntryCredential
+    )
+    $NewDatabasePSBoundParameters = $PSBoundParameters
+    if ($UUID) {$NewDatabasePSBoundParameters.remove('UUID') | Out-Null}
+    if ($Title) {$NewDatabasePSBoundParameters.remove('Title') | Out-Null}
+    if ($UserName) {$NewDatabasePSBoundParameters.remove('UserName') | Out-Null}
+    if ($Group) {$NewDatabasePSBoundParameters.remove('Group') | Out-Null}
+    if ($GUID) {$NewDatabasePSBoundParameters.remove('GUID') | Out-Null}
+    $DatabaseObject = New-KeePassDatabaseObject @NewDatabasePSBoundParameters
+    if (-not $DatabaseObject.IsOpen) {
+        throw "InvalidDatabaseObjectException : could not open the database with provided parameters"
+    }
+
+    $DatabaseObject.Close()
+}
+
+Function Remove-KeepassEntry {
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Database,
+        [Parameter(Mandatory=$False)]
+        [SecureString]$Password,
+        [Parameter(Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credential,        
+        [Parameter(Mandatory=$False)]
+        [String]$KeyFile,
+        [switch]$UseWindowsAccount,
+        [Parameter(Mandatory=$True)]
+        [String]$UUID
+    )
+    $NewDatabasePSBoundParameters = $PSBoundParameters
+    if ($UUID) {$NewDatabasePSBoundParameters.remove('UUID') | Out-Null}
+    if ($Title) {$NewDatabasePSBoundParameters.remove('Title') | Out-Null}
+    if ($UserName) {$NewDatabasePSBoundParameters.remove('UserName') | Out-Null}
+    if ($Group) {$NewDatabasePSBoundParameters.remove('Group') | Out-Null}
+    if ($GUID) {$NewDatabasePSBoundParameters.remove('GUID') | Out-Null}
+    $DatabaseObject = New-KeePassDatabaseObject @NewDatabasePSBoundParameters
+    if (-not $DatabaseObject.IsOpen) {
+        throw "InvalidDatabaseObjectException : could not open the database with provided parameters"
+    }
+
+    $DatabaseObject.Close()
+}
+
+Function Edit-KeepassEntry {
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Database,
+        [Parameter(Mandatory=$False)]
+        [SecureString]$Password,
+        [Parameter(Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credential,        
+        [Parameter(Mandatory=$False)]
+        [String]$KeyFile,
+        [switch]$UseWindowsAccount,
+        [Parameter(Mandatory=$True)]
+        [String]$UUID,
+        [Parameter(Mandatory=$False)]
+        [Hashtable]$Property
+    )
+    $NewDatabasePSBoundParameters = $PSBoundParameters
+    if ($UUID) {$NewDatabasePSBoundParameters.remove('UUID') | Out-Null}
+    if ($Title) {$NewDatabasePSBoundParameters.remove('Title') | Out-Null}
+    if ($UserName) {$NewDatabasePSBoundParameters.remove('UserName') | Out-Null}
+    if ($Group) {$NewDatabasePSBoundParameters.remove('Group') | Out-Null}
+    if ($GUID) {$NewDatabasePSBoundParameters.remove('GUID') | Out-Null}
+    $DatabaseObject = New-KeePassDatabaseObject @NewDatabasePSBoundParameters
+    if (-not $DatabaseObject.IsOpen) {
+        throw "InvalidDatabaseObjectException : could not open the database with provided parameters"
+    }
+
+    $DatabaseObject.Close()
 }
 
 Export-ModuleMember -Function "Import-KeePass"

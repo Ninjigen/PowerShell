@@ -61,7 +61,7 @@ Describe "Get-KeePass" {
         [System.Runtime.InteropServices.Marshal]::PtrToStringUni([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($KeepassRootEntry1.Password)) | Should be "rootentry1"
     }
     It "filters by Group" {
-        $KeepassEntries = Get-KeePass -Database $KeyfileProtectedDatabase -KeyFile $KeyFile -Group Windows
+        $KeepassEntries = Get-KeePass -Database $KeyfileProtectedDatabase -KeyFile $KeyFile -Group 'Windows'
         $KeepassEntries.count | Should be 2
     }
     It "uses secured strings as password" {
