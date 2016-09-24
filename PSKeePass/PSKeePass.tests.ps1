@@ -77,6 +77,36 @@ Describe "Get-KeePass" {
     }
 }
 
+Describe "Set-KeepassCompositeKey" {
+    $TestCompositeKeyDatabase = Join-Path $InvocationItem.Directory.FullName "tests\Test-CompositeKey.kdbx"
+    $PlainSetPassword = "SetToto"
+    $KeyFile = Join-Path $InvocationItem.Directory.FullName "tests\KeyFile.key"
+    It "exist keyfile" {
+        $KeyFile | Should exist
+    }
+    $SetPassword = $PlainPassword | ConvertTo-SecureString -AsPlainText -Force
+    It "Changes a password-protected database with another password" {
+        Set-KeepassCompositeKey -Database $TestCompositeKeyDatabase -Password $Password -SetPassword $SetPassword
+        Get-KeePass -Database $TestCompositeKeyDatabase -Password $SetPassword | Should not be $null
+    }
+    It "Sets a composite key to a keyfile" {
+        Set-KeepassCompositeKey -Database $TestCompositeKeyDatabase -Password $SetPassword -SetKeyfile $Keyfile
+        # pause
+        Get-KeePass -Database $TestCompositeKeyDatabase -KeyFile $KeyFile | Should not be $null
+    }
+    It "Changes a composite key to the windows account" {
+        Set-KeepassCompositeKey -Database $TestCompositeKeyDatabase -KeyFile $KeyFile -SetUseWindowsAccount
+        Get-KeePass -Database $TestCompositeKeyDatabase -UseWindowsAccount | Should not be $null
+    }
+    It "can use all means of authentication" {
+        Set-KeepassCompositeKey -Database $TestCompositeKeyDatabase -UseWindowsAccount -SetCredential $Credential -SetKeyfile $KeyFile -SetUseWindowsAccount
+        Get-KeePass -Database $TestCompositeKeyDatabase -KeyFile $KeyFile -Credential $Credential -UseWindowsAccount | Should not be $null
+    }
+    It "overwrites old authentication method with the selected one" {
+        Set-KeepassCompositeKey -Database $TestCompositeKeyDatabase -UseWindowsAccount -Credential $Credential -Keyfile $KeyFile -SetPassword $Password
+        Get-KeePass -Database $TestCompositeKeyDatabase -Password $Password | Should not be $null
+    }
+}
 
 Describe "ConvertTo-PSCredential" {
     $KeePassCredentialWithoutDomain = Get-KeePass -Database $KeyfileProtectedDatabase -KeyFile $KeyFile -UUID "DCED00B817989843A55C2F9B518651DB" | ConvertTo-PSCredential

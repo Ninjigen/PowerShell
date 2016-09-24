@@ -61,7 +61,7 @@ Function New-KeePassDatabaseObject {
             Write-Verbose $KeyFileItem.FullName
             $CompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpKeyfile($KeyFileItem.FullName)))
         } catch {
-            Write-Warning ("could not read Key file {0}" -f $KeyFileItem.FullName)
+            Write-Warning ("could not read Key file [{0}]" -f $KeyFileItem.FullName)
         }
     }
 
@@ -177,6 +177,94 @@ Function Get-KeePass {
         (($_.UUID -eq $UUID) -or (-not $UUID)) -and (($_.Title -eq $Title) -or (-not $Title)) -and (($_.UserName -eq $UserName) -or (-not $UserName)) -and (($_.GUID -eq $GUID) -or (-not $GUID)) -and (($_.Group -eq $Group) -or (-not $Group))
     }
     $DatabaseObject.Close() | Out-Null
+}
+
+Function Set-KeepassCompositeKey {
+    <#
+        .SYNOPSIS
+            Changes the authentication method to access a keepass database
+        .DESCRIPTION
+            Changes the authentication method of a KeePass database file (.kdbx) using all available authentification methods (composite key, keyfile, windows account)
+        .PARAMETER Database
+            Path to the .kdbx keepass database file
+        .PARAMETER Password
+            Encrypted password to open the KeePass database
+        .PARAMETER KeyFile
+            Path to the .key keepass keyfile to open the KeePass database
+        .PARAMETER Credential
+            Credential used to open the KeePass database (only the password is taken into account)
+        .PARAMETER UseWindowsAccount
+            use the windows account to open the keepass database
+        .PARAMETER SetPassword
+            Change the authentication method to use a password
+        .PARAMETER SetKeyFile
+            Change the authentication method to use a keyfile
+        .PARAMETER SetCredential
+            Change the authentication method to use a credential (only the password is used)
+        .PARAMETER SetUseWindowsAccount
+            Change the authentication method to use the current windows account
+        .EXAMPLE
+            Set-KeepassCompositeKey -Database $Database -Password <old password> -SetPassword <new password>
+            Set-KeepassCompositeKey -Database $Database -Password <old password> -SetPassword <new password> -SetKeyfile <new keyfile>
+            Set-KeepassCompositeKey -Database $Database -Password <old password> -SetPassword <new password> -SetKeyfile <new keyfile> -SetUseWindowsAccount
+    #>
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Database,
+        [Parameter(Mandatory=$False)]
+        [SecureString]$Password,
+        [Parameter(Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credential,        
+        [Parameter(Mandatory=$False)]
+        [String]$KeyFile,
+        [switch]$UseWindowsAccount,
+        [Parameter(Mandatory=$False)]
+        [SecureString]$SetPassword,
+        [Parameter(Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$SetCredential,        
+        [Parameter(Mandatory=$False)]
+        [String]$SetKeyFile,
+        [switch]$SetUseWindowsAccount
+    )
+    $NewDatabasePSBoundParameters = $PSBoundParameters
+    if ($SetPassword) {$NewDatabasePSBoundParameters.remove('SetPassword') | Out-Null}
+    if ($SetCredential) {$NewDatabasePSBoundParameters.remove('SetCredential') | Out-Null}
+    if ($SetKeyFile) {$NewDatabasePSBoundParameters.remove('SetKeyFile') | Out-Null}
+    if ($SetUseWindowsAccount) {$NewDatabasePSBoundParameters.remove('SetUseWindowsAccount') | Out-Null}
+    $DatabaseObject = New-KeePassDatabaseObject @NewDatabasePSBoundParameters
+    if (-not $DatabaseObject.IsOpen) {
+        throw "InvalidDatabaseObjectException : could not open the database with provided parameters"
+    }
+
+    $SetCompositeKey = New-Object KeepassLib.Keys.CompositeKey
+    if ($SetCredential.Password) {
+        $SetCompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpPassword([System.Runtime.InteropServices.Marshal]::PtrToStringUni([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Setcredential.Password)))))
+    }
+    if ($SetPassword) {
+        $SetCompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpPassword([System.Runtime.InteropServices.Marshal]::PtrToStringUni([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SetPassword)))))
+    }
+    if ($SetUseWindowsAccount) {
+        $SetCompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpUserAccount))
+    }
+    if ($SetKeyFile) {
+        try {
+            $SetKeyFileItem = Get-Item $SetKeyFile -ErrorAction Stop
+            $SetCompositeKey.AddUserKey((New-Object KeepassLib.Keys.KcpKeyfile($SetKeyFileItem.FullName)))
+        } catch {
+            Write-Warning ("could not read Key file [{0}]" -f $SetKeyFileItem.FullName)
+        }
+    }
+    if ((-not $SetPassword) -and (-not $SetCredential.Password) -and (-not $SetKeyFile) -and (-not $SetUseWindowsAccount)) {
+        throw "InvalidInputException : Cannot create composite key with this information"
+    }
+
+    $DatabaseObject.MasterKey = $SetCompositeKey
+
+    $IStatusLogger = New-Object KeePassLib.Interfaces.NullStatusLogger
+
+    $DatabaseObject.Save($IStatusLogger)
+
+    $DatabaseObject.Close()
 }
 
 Function ConvertTo-PSCredential {
@@ -304,6 +392,7 @@ Function Edit-KeepassEntry {
 }
 
 Export-ModuleMember -Function "Import-KeePass"
+Export-ModuleMember -Function "Set-KeepassCompositeKey"
 Export-ModuleMember -Variable "KeePassFolder"
 Export-ModuleMember -Function "Get-KeePass"
 Export-ModuleMember -Function "ConvertTo-PSCredential"
