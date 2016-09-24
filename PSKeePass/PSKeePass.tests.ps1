@@ -91,7 +91,6 @@ Describe "Set-KeepassCompositeKey" {
     }
     It "Sets a composite key to a keyfile" {
         Set-KeepassCompositeKey -Database $TestCompositeKeyDatabase -Password $SetPassword -SetKeyfile $Keyfile
-        # pause
         Get-KeePass -Database $TestCompositeKeyDatabase -KeyFile $KeyFile | Should not be $null
     }
     It "Changes a composite key to the windows account" {
@@ -120,4 +119,46 @@ Describe "ConvertTo-PSCredential" {
         $KeePassCredentialWithDomain.UserName | Should be "WindowsDomain\WindowsUser2"
         $KeePassCredentialWithDomainAsProperty.UserName | Should be "WindowsDomain\WindowsUser1"
     }
+}
+
+
+Describe "Add-Edit-Remove-KeepassEntry" {
+
+    $EntriesDatabase = Join-Path $InvocationItem.Directory.FullName "tests\Entries.kdbx"
+    $NewUser = "NewUser"
+    $NewPassword = "NewPassword" | ConvertTo-SecureString -AsPlainText -Force
+    $NewEntryPassword = "NewEntryPassword" | ConvertTo-SecureString -AsPlainText -Force
+    $EntryCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($NewUser, $NewPassword)
+    $NewCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($NewUser, $NewEntryPassword)
+    $KeyFile = Join-Path $InvocationItem.Directory.FullName "tests\KeyFile.key"
+    
+    $NewEntry = Add-KeepassEntry -Database $EntriesDatabase -Keyfile $Keyfile -EntryCredential $EntryCredential -Title "EntryCredential" -Property @{"key1"="Value1";"key2"="Value2"}
+    
+    It "adds an entry into the keepass" {
+        $NewEntry | Should not be $null
+    }
+
+    It "finds all registered properties" {
+        $NewEntry.Title | Should be "EntryCredential"
+        $NewEntry.UserName | Should be "NewUser"
+        ([System.Runtime.InteropServices.Marshal]::PtrToStringUni([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($NewEntry.Password))) | Should be "NewPassword"
+        $NewEntry.key1 | Should be "Value1"
+        $NewEntry.key2 | Should be "Value2"
+    }
+
+    It "edits an existing entry" {
+        $EditedEntry = Edit-KeepassEntry -Database $EntriesDatabase -KeyFile $Keyfile -NewCredential $NewCredential -Property @{"key3"="Value3"} -UUID $NewEntry.UUID
+        $EditedEntry.UserName | Should be $NewEntry.UserName
+        $EditedEntry.Title | Should be $NewEntry.Title
+        ([System.Runtime.InteropServices.Marshal]::PtrToStringUni([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($EditedEntry.Password))) | Should be "NewEntryPassword"
+        $EditedEntry.key1 | Should be "Value1"
+        $EditedEntry.key2 | Should be "Value2"
+        $EditedEntry.key3 | Should be "Value3"
+    }
+
+    It "removes an existing entry" {
+        Remove-KeepassEntry -Database $EntriesDatabase -Keyfile $Keyfile -UUID $NewEntry.UUID
+        Get-KeePass -Database $EntriesDatabase -Keyfile $Keyfile -UUID $NewEntry.UUID | Should be $null
+    }
+
 }

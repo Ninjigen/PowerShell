@@ -304,6 +304,28 @@ Function ConvertTo-PSCredential {
 }
 
 Function Add-KeepassEntry {
+    <#
+        .SYNOPSIS
+            Adds an entry to a KeePass database file (.kdbx)
+        .DESCRIPTION
+            Adds an entry to a KeePass database file (.kdbx) using all available authentification methods (composite key, keyfile, windows account)
+        .PARAMETER Database
+            Path to the .kdbx keepass database file
+        .PARAMETER Password
+            Encrypted password to open the KeePass database
+        .PARAMETER KeyFile
+            Path to the .key keepass keyfile to open the KeePass database
+        .PARAMETER Credential
+            Credential used to open the KeePass database (only the password is taken into account)
+        .PARAMETER UseWindowsAccount
+            use the windows account to open the keepass database
+        .PARAMETER Property
+            Dictionary of all custom properties to add
+        .PARAMETER Title
+            Title of the entry
+        .PARAMETER EntryCredential
+            Credential used to create the entry
+    #>
     Param(
         [Parameter(Mandatory=$True)]
         [String]$Database,
@@ -316,24 +338,70 @@ Function Add-KeepassEntry {
         [switch]$UseWindowsAccount,
         [Parameter(Mandatory=$False)]
         [Hashtable]$Property,
-        [Parameter(Mandatory=$False)]
-        [String]$EntryCredential
+        [Parameter(Mandatory=$True)]
+        [String]$Title,
+        [Parameter(Mandatory=$True)]
+        [System.Management.Automation.PSCredential]$EntryCredential
     )
     $NewDatabasePSBoundParameters = $PSBoundParameters
-    if ($UUID) {$NewDatabasePSBoundParameters.remove('UUID') | Out-Null}
+    if ($Property) {$NewDatabasePSBoundParameters.remove('Property') | Out-Null}
     if ($Title) {$NewDatabasePSBoundParameters.remove('Title') | Out-Null}
-    if ($UserName) {$NewDatabasePSBoundParameters.remove('UserName') | Out-Null}
-    if ($Group) {$NewDatabasePSBoundParameters.remove('Group') | Out-Null}
-    if ($GUID) {$NewDatabasePSBoundParameters.remove('GUID') | Out-Null}
+    if ($EntryCredential) {$NewDatabasePSBoundParameters.remove('EntryCredential') | Out-Null}
     $DatabaseObject = New-KeePassDatabaseObject @NewDatabasePSBoundParameters
     if (-not $DatabaseObject.IsOpen) {
         throw "InvalidDatabaseObjectException : could not open the database with provided parameters"
     }
 
+    $EntryObject = New-Object -TypeName KeepassLib.PWEntry -ArgumentList ($true,$true)
+    [byte[]]$EntryObjectUUIDByte = $EntryObject.UUID.UUIDBytes
+    $EntryObjectUUID = [System.BitConverter]::ToString($EntryObjectUUIDByte).Replace('-','')
+    $ProtectedUserName = New-Object -TypeName KeepassLib.Security.ProtectedString -ArgumentList ($true,[string]($EntryCredential.UserName))
+    $EntryObject.Strings.Set("UserName",$ProtectedUserName)
+    $EntryObject.Strings.Set("Password",(New-Object KeepassLib.Security.ProtectedString -ArgumentList ($true,([System.Runtime.InteropServices.Marshal]::PtrToStringUni([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($EntryCredential.Password))))))
+    $ProtectedNotes = New-Object -TypeName KeepassLib.Security.ProtectedString -ArgumentList ($true,"")
+    $EntryObject.Strings.Set("Notes",$ProtectedNotes)
+    $ProtectedTitle = New-Object -TypeName KeepassLib.Security.ProtectedString -ArgumentList ($true,[string]($Title))
+    $EntryObject.Strings.Set("Title",$ProtectedTitle)
+    if ($Property) {
+        $Property.keys | Foreach-Object {
+            $key = $_
+            $Value = New-Object -TypeName KeepassLib.Security.ProtectedString -ArgumentList ($true,[string]($Property."$key"))
+            $EntryObject.Strings.Set($key,$Value)
+        }
+    }
+
+    $DatabaseObject.RootGroup.addEntry($EntryObject,$false)
+
+    $IStatusLogger = New-Object KeePassLib.Interfaces.NullStatusLogger
+
+    $DatabaseObject.Save($IStatusLogger)
+
     $DatabaseObject.Close()
+
+    $NewDatabasePSBoundParameters.UUID = $EntryObjectUUID
+
+    Get-KeePass @NewDatabasePSBoundParameters
 }
 
 Function Remove-KeepassEntry {
+    <#
+        .SYNOPSIS
+            Removes an entry from a KeePass database file (.kdbx)
+        .DESCRIPTION
+            Removes an entry from a KeePass database file (.kdbx) using all available authentification methods (composite key, keyfile, windows account)
+        .PARAMETER Database
+            Path to the .kdbx keepass database file
+        .PARAMETER Password
+            Encrypted password to open the KeePass database
+        .PARAMETER KeyFile
+            Path to the .key keepass keyfile to open the KeePass database
+        .PARAMETER Credential
+            Credential used to open the KeePass database (only the password is taken into account)
+        .PARAMETER UseWindowsAccount
+            use the windows account to open the keepass database
+        .PARAMETER UUID
+            UUID of the entry to remove
+    #>
     Param(
         [Parameter(Mandatory=$True)]
         [String]$Database,
@@ -349,19 +417,50 @@ Function Remove-KeepassEntry {
     )
     $NewDatabasePSBoundParameters = $PSBoundParameters
     if ($UUID) {$NewDatabasePSBoundParameters.remove('UUID') | Out-Null}
-    if ($Title) {$NewDatabasePSBoundParameters.remove('Title') | Out-Null}
-    if ($UserName) {$NewDatabasePSBoundParameters.remove('UserName') | Out-Null}
-    if ($Group) {$NewDatabasePSBoundParameters.remove('Group') | Out-Null}
-    if ($GUID) {$NewDatabasePSBoundParameters.remove('GUID') | Out-Null}
     $DatabaseObject = New-KeePassDatabaseObject @NewDatabasePSBoundParameters
     if (-not $DatabaseObject.IsOpen) {
         throw "InvalidDatabaseObjectException : could not open the database with provided parameters"
     }
+    $DatabaseEntry,$trash = $DatabaseObject.RootGroup.Entries | Where-Object {
+        [Byte[]]$UUIDByte = $_.UUID.UUIDBytes
+        [System.BitConverter]::ToString($UUIDByte).Replace('-','') -eq $UUID
+    }
+    if ($DatabaseEntry) {
+        if (-not ($DatabaseObject.RootGroup.Entries.Remove($DatabaseEntry))) {
+            throw ("InvalidOperationException : could not remove entry [{0}]" -f $UUID)
+        }
+    } else {
+        throw ("EntryNotFoundException : entry with UUID [{0}] does not exist" -f $UUID)
+    }
+    $IStatusLogger = New-Object KeePassLib.Interfaces.NullStatusLogger
 
+    $DatabaseObject.Save($IStatusLogger)
     $DatabaseObject.Close()
 }
 
 Function Edit-KeepassEntry {
+    <#
+        .SYNOPSIS
+            Edits an entry from a KeePass database file (.kdbx)
+        .DESCRIPTION
+            Edits an entry from a KeePass database file (.kdbx) using all available authentification methods (composite key, keyfile, windows account)
+        .PARAMETER Database
+            Path to the .kdbx keepass database file
+        .PARAMETER Password
+            Encrypted password to open the KeePass database
+        .PARAMETER KeyFile
+            Path to the .key keepass keyfile to open the KeePass database
+        .PARAMETER Credential
+            Credential used to open the KeePass database (only the password is taken into account)
+        .PARAMETER UseWindowsAccount
+            use the windows account to open the keepass database
+        .PARAMETER UUID
+            UUID of the entry
+        .PARAMETER NewCredential
+            Credential used to create the entry
+        .PARAMETER Property
+            Dictionary of all custom properties to add
+    #>
     Param(
         [Parameter(Mandatory=$True)]
         [String]$Database,
@@ -374,25 +473,57 @@ Function Edit-KeepassEntry {
         [switch]$UseWindowsAccount,
         [Parameter(Mandatory=$True)]
         [String]$UUID,
+        [Parameter(Mandatory=$True)]
+        [System.Management.Automation.PSCredential]$NewCredential,
         [Parameter(Mandatory=$False)]
         [Hashtable]$Property
     )
     $NewDatabasePSBoundParameters = $PSBoundParameters
     if ($UUID) {$NewDatabasePSBoundParameters.remove('UUID') | Out-Null}
-    if ($Title) {$NewDatabasePSBoundParameters.remove('Title') | Out-Null}
-    if ($UserName) {$NewDatabasePSBoundParameters.remove('UserName') | Out-Null}
-    if ($Group) {$NewDatabasePSBoundParameters.remove('Group') | Out-Null}
-    if ($GUID) {$NewDatabasePSBoundParameters.remove('GUID') | Out-Null}
+    if ($NewCredential) {$NewDatabasePSBoundParameters.remove('NewCredential') | Out-Null}
+    if ($Property) {$NewDatabasePSBoundParameters.remove('Property') | Out-Null}
     $DatabaseObject = New-KeePassDatabaseObject @NewDatabasePSBoundParameters
     if (-not $DatabaseObject.IsOpen) {
         throw "InvalidDatabaseObjectException : could not open the database with provided parameters"
     }
+    $EntryObject,$trash = $DatabaseObject.RootGroup.Entries | Where-Object {
+        [Byte[]]$UUIDByte = $_.UUID.UUIDBytes
+        [System.BitConverter]::ToString($UUIDByte).Replace('-','') -eq $UUID
+    }
+    if ($EntryObject) {
+        if ($NewCredential) {
+            $ProtectedUserName = New-Object -TypeName KeepassLib.Security.ProtectedString -ArgumentList ($true,[string]($NewCredential.UserName))
+            $EntryObject.Strings.Set("UserName",$ProtectedUserName)
+            $ProtectedPassword = New-Object -TypeName KeepassLib.Security.ProtectedString -ArgumentList ($true,[string]([System.Runtime.InteropServices.Marshal]::PtrToStringUni([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($NewCredential.Password))))
+            $EntryObject.Strings.Set("Password",$ProtectedPassword)
+        }
+        if ($Property) {
+            $Property.keys | Foreach-Object {
+                $key = $_
+                $Value = New-Object -TypeName KeepassLib.Security.ProtectedString -ArgumentList ($true,[string]($Property.$key))
+                $EntryObject.Strings.Set($key,$Value)
+            }
+        }
+    } else {
+        throw ("EntryNotFoundException : entry with UUID [{0}] does not exist" -f $UUID)
+    }
 
+    $IStatusLogger = New-Object KeePassLib.Interfaces.NullStatusLogger
+
+    $DatabaseObject.Save($IStatusLogger)
     $DatabaseObject.Close()
+
+    $NewDatabasePSBoundParameters.UUID = $UUID
+
+    Get-KeePass @NewDatabasePSBoundParameters
 }
 
-Export-ModuleMember -Function "Import-KeePass"
-Export-ModuleMember -Function "Set-KeepassCompositeKey"
 Export-ModuleMember -Variable "KeePassFolder"
+
+Export-ModuleMember -Function "Import-KeePass"
 Export-ModuleMember -Function "Get-KeePass"
+Export-ModuleMember -Function "Set-KeepassCompositeKey"
 Export-ModuleMember -Function "ConvertTo-PSCredential"
+Export-ModuleMember -Function "Add-KeepassEntry"
+Export-ModuleMember -Function "Edit-KeepassEntry"
+Export-ModuleMember -Function "Remove-KeepassEntry"
