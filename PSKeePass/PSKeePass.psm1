@@ -1,4 +1,10 @@
-[String]$KeePassFolder="C:\Program Files (x86)\KeePass Password Safe 2"
+if (-not $KeePassFolder) {
+    if ($env:KeePassFolder) {
+        $KeePassFolder = $env:KeePassFolder
+    } else {
+        $KeePassFolder="C:\Program Files (x86)\KeePass Password Safe 2"
+    }
+}
 
 Function Import-KeePass {
     <#
