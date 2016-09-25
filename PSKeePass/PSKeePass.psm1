@@ -466,6 +466,8 @@ Function Edit-KeepassEntry {
             Credential used to create the entry
         .PARAMETER Property
             Dictionary of all custom properties to add
+        .PARAMETER RemoveProperty
+            Name of all properties to delete
     #>
     Param(
         [Parameter(Mandatory=$True)]
@@ -482,12 +484,15 @@ Function Edit-KeepassEntry {
         [Parameter(Mandatory=$True)]
         [System.Management.Automation.PSCredential]$NewCredential,
         [Parameter(Mandatory=$False)]
-        [Hashtable]$Property
+        [Hashtable]$Property,
+        [Parameter(Mandatory=$False)]
+        [String[]]$RemoveProperty
     )
     $NewDatabasePSBoundParameters = $PSBoundParameters
     if ($UUID) {$NewDatabasePSBoundParameters.remove('UUID') | Out-Null}
     if ($NewCredential) {$NewDatabasePSBoundParameters.remove('NewCredential') | Out-Null}
     if ($Property) {$NewDatabasePSBoundParameters.remove('Property') | Out-Null}
+    if ($RemoveProperty) {$NewDatabasePSBoundParameters.remove('RemoveProperty') | Out-Null}
     $DatabaseObject = New-KeePassDatabaseObject @NewDatabasePSBoundParameters
     if (-not $DatabaseObject.IsOpen) {
         throw "InvalidDatabaseObjectException : could not open the database with provided parameters"
@@ -508,6 +513,11 @@ Function Edit-KeepassEntry {
                 $key = $_
                 $Value = New-Object -TypeName KeepassLib.Security.ProtectedString -ArgumentList ($true,[string]($Property.$key))
                 $EntryObject.Strings.Set($key,$Value)
+            }
+        }
+        if ($RemoveProperty.count) {
+            $RemoveProperty |Foreach-Object {
+                $EntryObject.Strings.Remove("$_")
             }
         }
     } else {

@@ -147,11 +147,11 @@ Describe "Add-Edit-Remove-KeepassEntry" {
     }
 
     It "edits an existing entry" {
-        $EditedEntry = Edit-KeepassEntry -Database $EntriesDatabase -KeyFile $Keyfile -NewCredential $NewCredential -Property @{"key3"="Value3"} -UUID $NewEntry.UUID
+        $EditedEntry = Edit-KeepassEntry -Database $EntriesDatabase -KeyFile $Keyfile -NewCredential $NewCredential -Property @{"key3"="Value3"} -RemoveProperty "key1" -UUID $NewEntry.UUID
         $EditedEntry.UserName | Should be $NewEntry.UserName
         $EditedEntry.Title | Should be $NewEntry.Title
         ([System.Runtime.InteropServices.Marshal]::PtrToStringUni([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($EditedEntry.Password))) | Should be "NewEntryPassword"
-        $EditedEntry.key1 | Should be "Value1"
+        $EditedEntry.key1 | Should be $null
         $EditedEntry.key2 | Should be "Value2"
         $EditedEntry.key3 | Should be "Value3"
     }
