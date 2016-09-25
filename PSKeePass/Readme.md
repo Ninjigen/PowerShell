@@ -7,7 +7,7 @@ Clone the repository somewhere on your computer, then add the path to the *$env:
 Alternatively, you can put it under the WindowsPowerShell\Modules folder in your My Documents folder (you might need to create it), as it is the default PowerShell module path, so that the PSKeePass folder is located here : 
 *...MyDOcuments\WindowsPowerShell\Modules\PSKeepass*
 
-Edit the $KeePassFolder variable in the KeePass.psm1 module to the path leading to your KeePass installation
+Either set the $KeepassFolder variable in your profile or set a KeepassFolder environment variable if you're using a different Keepass installation folder than "C:\Program Files (x86)\KeePass Password Safe 2"
 
 ## TroubleShooting
 If you're having issues running the module, please send the output of the Invoke-Pester command ran in the PSKeepass Folder.
