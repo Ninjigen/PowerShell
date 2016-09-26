@@ -171,7 +171,7 @@ Function Get-KeePass {
         $Property.Tags = $DatabaseEntry.Tags
         $DatabaseEntry.Strings | Foreach-Object {
             [String]$key = $_.key
-            if ($key -eq 'Password') {
+            if (($key -eq 'Password') -and ($DatabaseEntry.Strings.ReadSafe($key) -ne '')) {
                 $Value = $DatabaseEntry.Strings.ReadSafe($key) | ConvertTo-SecureString -AsPlainText -Force
             } else {
                 $Value = $DatabaseEntry.Strings.ReadSafe($key)
