@@ -66,7 +66,9 @@ Describe "Get-KeePass" {
     }
     It "uses secured strings as password" {
         Get-KeePass -Database $KeyfileProtectedDatabase -KeyFile $KeyFile | Foreach-Object {
-            $_.Password.GetType().Name | Should be "SecureString"
+            if ($_.Password -ne ''){
+                $_.Password.GetType().Name | Should be "SecureString"
+            }
         }
     }
     It "finds custom properties" {
