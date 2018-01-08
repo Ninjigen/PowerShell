@@ -20,14 +20,9 @@ This script hasn't been extensively tested on any windows OS (Mainly on Windows 
 * Copy the contents of the c:\Src directory to a directory d:\Dest
 * Without the /e or /mir switch, only files from the root of c:\src are copied.
 * See https://technet.microsoft.com/en-us/library/cc733145(v=ws.11).aspx for an extensive documentation on Robocopy switches
-* The following switches MUST not be used : 
-  * /NDL
-  * /TEE
-  * /bytes
-  * /LOG:LOGFILE (please use the **-LogFile** parameter instead)
-  * /NFL
-  * /L
-  * /NC 
+* The following switches cannot be used (since they would mess with the progress bar) : 
+  * Logging options
+  * Job Options
 
 # Licence and support
 
