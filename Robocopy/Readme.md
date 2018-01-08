@@ -15,7 +15,7 @@ This script hasn't been extensively tested on any windows OS (Mainly on Windows 
 
 # Example
 
-**C:\PS> .\Start-Robocopy -Source "c:\Src" -Destination "d:\Dest" [-Files 'file1.ext1' '*.ext2'] [-RobocopyArgs "/IS" "/IT"]**
+**C:\PS> .\Start-Robocopy -Source "c:\Src" -Destination "d:\Dest" [-Files 'file1.ext1' '*.ext2'] [-IS] [-IT]**
 
 * Copy the contents of the c:\Src directory to a directory d:\Dest
 * Without the /e or /mir switch, only files from the root of c:\src are copied.
