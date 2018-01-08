@@ -26,4 +26,4 @@ This script hasn't been extensively tested on any windows OS (Mainly on Windows 
 
 # Licence and support
 
-This script has been posted here for future reference, and if people struggle like I did with writing a Robocopy function for PowerShell. It has been posted without notice of the aforementioned persons.
+This script has been posted here for future reference, and to help people struggling like I did with writing a Robocopy function for PowerShell. It has been posted without notice of the aforementioned persons.
