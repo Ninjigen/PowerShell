@@ -320,7 +320,7 @@ while (!$RoboRun.HasExited) {
         else {
             Write-Progress Copy -ParentID $RoboRun.ID -Complete
         }
-        write-progress ROBOCOPY -ID $RoboRun.ID -PercentComplete ($copied/$FileSize*100) $Files[-1].Split("`t")[-1]
+        Write-Progress -Activity ('ROBOCOPY [{0}] --> [{1}]' -f $SourceItem.FullName,$DestinationItem.FullName) -ID $RoboRun.ID -PercentComplete ($copied/$FileSize*100) -Status $Files[-1].Split("`t")[-1]
     }
 }
 
@@ -329,7 +329,6 @@ $RoboLogResult = (get-content $RoboLog)[-11..-2]
 $RoboLogResult | out-string | Write-Verbose
 $Speed,$trash = [regex]::Match($RoboLogResult[7],'\d+').Groups[0].Value
 [TimeSpan]$TotalDuration,[TimeSpan]$CopyDuration,[TimeSpan]$FailedDuration,[TimeSpan]$ExtraDuration,$trash = $RoboLogResult[4] | Select-String -Pattern '\d?\d\:\d{2}\:\d{2}' -AllMatches | Foreach-Object {$_.Matches} | Foreach-Object {$_.Value}
-# $DurationHH,$DurationMM,$DurationSS,$trash =  $RoboLogResult[4].split(' ').Where({$_})[2].split(':')
 $TotalDirs,$TotalDirCopied,$TotalDirIgnored,$TotalDirMismatched,$TotalDirFailed,$TotalDirExtra,$trash = $RoboLogResult[1] | Select-String -Pattern '\d+' -AllMatches | Foreach-Object {$_.Matches} | Foreach-Object {$_.Value}
 $TotalFiles,$TotalFileCopied,$TotalFileIgnored,$TotalFileMismatched,$TotalFileFailed,$TotalFileExtra,$trash = $RoboLogResult[2] | Select-String -Pattern '\d+' -AllMatches | Foreach-Object {$_.Matches} | Foreach-Object {$_.Value}
 
