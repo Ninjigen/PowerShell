@@ -364,7 +364,7 @@ $Property = [ordered]@{
     'Duration' = (New-TimeSpan -Hours $DurationHH -Minutes $DurationMM -Seconds $DurationSS);
     'Speed' = (Format-SpeedHumanReadable $Speed) + '/s';
     'ExitCode' = $RoboRun.ExitCode;
-    'Success' = $RoboRun.ExitCode -ge 8;
+    'Success' = $RoboRun.ExitCode -lt 8;
     'Message' = $Message
 }
 
