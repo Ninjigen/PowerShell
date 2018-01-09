@@ -1,38 +1,30 @@
 <#
 .SYNOPSIS
 RoboCopy with PowerShell progress.
-
 .DESCRIPTION
 Performs file copy with RoboCopy. Output from RoboCopy is captured,
 parsed, and returned as Powershell native status and progress.
-
 .PARAMETER RobocopyArgs
 List of arguments passed directly to Robocopy.
 Must not conflict with defaults: /ndl /TEE /Bytes /NC /nfl /Log
-
 .OUTPUTS
 Returns an object with the status of final copy.
 REMINDER: Any error level below 8 can be considered a success by RoboCopy.
-
 .EXAMPLE
 C:\PS> .\Start-Robocopy -Source "c:\Src" -Destination "d:\Dest" [-Files 'file1.ext1' '*.ext2'] [-IS] [-IT]
-
 Copy the contents of the c:\Src directory to a directory d:\Dest
 Without the /e or /mir switch, only files from the root of c:\src are copied.
 See https://technet.microsoft.com/en-us/library/cc733145(v=ws.11).aspx for an extensive documentation on Robocopy switches
 The following switches can't be used : 
  - Logging Options
  - Job Options
-
 .LINK
 https://github.com/Ninjigen/PowerShell/tree/master/Robocopy
-
 .NOTES
 Original script by Keith S. Garner (KeithGa@KeithGa.com) - 6/23/2014
 Originally posted on https://keithga.wordpress.com/2014/06/23/copy-itemwithprogress
 With inspiration by Trevor Sullivan @pcgeek86
 Updated by Ninjigen - 01/08/2018
-
 #>
 
 [CmdletBinding()]
@@ -325,7 +317,8 @@ while (!$RoboRun.HasExited) {
 $RoboLogResult = (get-content $RoboLog)[-11..-2]
 $RoboLogResult | out-string | Write-Verbose
 $Speed,$trash = [regex]::Match($RoboLogResult[7],'\d+').Groups[0].Value
-$DurationHH,$DurationMM,$DurationSS,$trash =  $RoboLogResult[4].split(' ').Where({$_})[2].split(':')
+[TimeSpan]$TotalDuration,[TimeSpan]$CopyDuration,[TimeSpan]$FailedDuration,[TimeSpan]$ExtraDuration,$trash = $RoboLogResult[4] | Select-String -Pattern '\d?\d\:\d{2}\:\d{2}' -AllMatches | Foreach-Object {$_.Matches} | Foreach-Object {$_.Value}
+# $DurationHH,$DurationMM,$DurationSS,$trash =  $RoboLogResult[4].split(' ').Where({$_})[2].split(':')
 $TotalDirs,$TotalDirCopied,$TotalDirIgnored,$TotalDirMismatched,$TotalDirFailed,$TotalDirExtra,$trash = $RoboLogResult[1] | Select-String -Pattern '\d+' -AllMatches | Foreach-Object {$_.Matches} | Foreach-Object {$_.Value}
 $TotalFiles,$TotalFileCopied,$TotalFileIgnored,$TotalFileMismatched,$TotalFileFailed,$TotalFileExtra,$trash = $RoboLogResult[2] | Select-String -Pattern '\d+' -AllMatches | Foreach-Object {$_.Matches} | Foreach-Object {$_.Value}
 
@@ -358,17 +351,20 @@ $Property = [ordered]@{
     'Command' = "Robocopy.exe " + ($RoboArgs -join " ");
     'DirCount' = $TotalDirs;
     'FileCount' = $TotalFiles;
+    'Duration' = $TotalDuration;
     'DirCopied' = $TotalDirCopied;
     'FileCopied' = $TotalFileCopied;
+    'CopyDuration' = $CopyDuration
     'DirIgnored' = $TotalDirIgnored;
     'FileIgnored' = $TotalFileIgnored;
     'DirMismatched' = $TotalDirMismatched;
     'FileMismatched' = $TotalFileMismatched;
     'DirFailed' = $TotalDirFailed;
     'FileFailed' = $TotalFileFailed;
+    'FailedDuration' = $FailedDuration
     'DirExtra' = $TotalDirExtra;
     'FileExtra' = $TotalFileExtra;
-    'Duration' = (New-TimeSpan -Hours $DurationHH -Minutes $DurationMM -Seconds $DurationSS);
+    'ExtraDuration' = $ExtraDuration
     'Speed' = (Format-SpeedHumanReadable $Speed) + '/s';
     'ExitCode' = $RoboRun.ExitCode;
     'Success' = $RoboRun.ExitCode -lt 8;
