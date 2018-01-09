@@ -56,7 +56,6 @@ param(
     [switch]$BackupMode,
     [Alias('z')]
     [switch]$RestartMode,
-    [Alias('efsraw')]
     [switch]$EFSRaw,
     [Parameter(Mandatory=$False)]
     [Alias('copy')]
@@ -67,7 +66,6 @@ param(
     [switch]$SecurityFix,
     [Alias('timfix')]
     [switch]$Timefix,
-    [Alias('purge')]
     [switch]$Purge,
     [Alias('mir')]
     [switch]$Mirror,
@@ -200,11 +198,11 @@ $RobocopyArguments = $Source,$Destination + $Files
 
 if ($IncludeSubDirectories) {$RobocopyArguments += '/s'}
 if ($IncludeEmptySubDirectories) {$RobocopyArguments += '/e'}
-if ($Level -ne $null) {$RobocopyArguments += '/lev:' + $Level}
+if ($Level) {$RobocopyArguments += '/lev:' + $Level}
 if ($BackupMode) {$RobocopyArguments += '/b'}
 if ($RestartMode) {$RobocopyArguments += '/z'}
 if ($EFSRaw) {$RobocopyArguments += '/efsraw'}
-if ($CopyFlags) {$RobocopyArguments += '/copy:' + ($CopyFlags -join '')}
+if ($CopyFlags) {$RobocopyArguments += '/copy:' + (($CopyFlags | Sort -Unique) -join '')}
 if ($NoCopy) {$RobocopyArguments += '/nocopy'}
 if ($SecurityFix) {$RobocopyArguments += '/secfix'}
 if ($Timefix) {$RobocopyArguments += '/timfix'}
@@ -212,22 +210,22 @@ if ($Purge) {$RobocopyArguments += '/purge'}
 if ($Mirror) {$RobocopyArguments += '/mir'}
 if ($MoveFiles) {$RobocopyArguments += '/mov'}
 if ($MoveFilesAndDirectories) {$RobocopyArguments += '/move'}
-if ($AddAttribute) {$RobocopyArguments += '/a+:' + ($AddAttribute -join '')}
-if ($RemoveAttribute) {$RobocopyArguments += '/a-:' + ($RemoveAttribute -join '')}
+if ($AddAttribute) {$RobocopyArguments += '/a+:' + (($AddAttribute | Sort -Unique) -join '')}
+if ($RemoveAttribute) {$RobocopyArguments += '/a-:' + (($RemoveAttribute | Sort -Unique) -join '')}
 if ($Create) {$RobocopyArguments += '/create'}
 if ($fat) {$RobocopyArguments += '/fat'}
 if ($IgnoreLongPath) {$RobocopyArguments += '/256'}
-if ($MonitorChanges -ne $null) {$RobocopyArguments += '/mon:' + $MonitorChanges}
-if ($MonitorMinutes -ne $null) {$RobocopyArguments += '/mot:' + $MonitorMinutes}
-if ($Threads -ne $null) {$RobocopyArguments += '/MT:' + $Threads}
+if ($MonitorChanges) {$RobocopyArguments += '/mon:' + $MonitorChanges}
+if ($MonitorMinutes) {$RobocopyArguments += '/mot:' + $MonitorMinutes}
+if ($Threads) {$RobocopyArguments += '/MT:' + $Threads}
 if ($RunTimes) {$RobocopyArguments += '/rh:' + $RunTimes}
 if ($UsePerFileRunTimes) {$RobocopyArguments += '/pf'}
-if ($InterPacketGap -ne $null) {$RobocopyArguments += '/ipg:' + $InterPacketGap}
+if ($InterPacketGap) {$RobocopyArguments += '/ipg:' + $InterPacketGap}
 if ($SymbolicLink) {$RobocopyArguments += '/sl'}
 if ($Archive) {$RobocopyArguments += '/a'}
 if ($ResetArchiveAttribute) {$RobocopyArguments += '/m'}
-if ($IncludeAttribute) {$RobocopyArguments += '/ia:' + $IncludeAttribute -join ''}
-if ($ExcludeAttribute) {$RobocopyArguments += '/xa:' + $ExcludeAttribute -join ''}
+if ($IncludeAttribute) {$RobocopyArguments += '/ia:' + ($IncludeAttribute | Sort -Unique) -join ''}
+if ($ExcludeAttribute) {$RobocopyArguments += '/xa:' + ($ExcludeAttribute | Sort -Unique) -join ''}
 if ($ExcludeFileName) {$RobocopyArguments += '/xf ' + $ExcludeFileName -join ' '}
 if ($ExcludeDirectory) {$RobocopyArguments += '/xd ' + $ExcludeDirectory -join ' '}
 if ($ExcludeChangedFiles) {$RobocopyArguments += '/xct'}
@@ -248,8 +246,8 @@ if ($ExcludeFileJunctionPoints) {$RobocopyArguments += '/xjf'}
 if ($ExcludeDirectoryJunctionPoints) {$RobocopyArguments += '/xjd'}
 if ($AssumeFATFileTime) {$RobocopyArguments += '/fft'}
 if ($CompensateDST) {$RobocopyArguments += '/dst'}
-if ($Retry -ne $null) {$RobocopyArguments += '/r:' + $Retry}
-if ($Wait -ne $null) {$RobocopyArguments += '/w:' + $Wait}
+if ($Retry) {$RobocopyArguments += '/r:' + $Retry}
+if ($Wait) {$RobocopyArguments += '/w:' + $Wait}
 if ($SaveRetrySettings) {$RobocopyArguments += '/reg'}
 if ($WaitForShareName) {$RobocopyArguments += '/tbd'}
 
