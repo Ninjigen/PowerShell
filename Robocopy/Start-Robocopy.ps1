@@ -326,22 +326,23 @@ $RoboLogResult = (get-content $RoboLog)[-11..-2]
 $RoboLogResult | out-string | Write-Verbose
 $Speed,$trash = [regex]::Match($RoboLogResult[7],'\d+').Groups[0].Value
 $DurationHH,$DurationMM,$DurationSS,$trash =  $RoboLogResult[4].split(' ').Where({$_})[2].split(':')
-$TotalFiles,$TotalCopied,$TotalIgnored,$TotalMismatched,$TotalFailed,$Extra,$trash = $RoboLogResult[2] | Select-String -Pattern '\d+' -AllMatches | Foreach-Object {$_.Matches} | Foreach-Object {$_.Value}
+$TotalDirs,$TotalDirCopied,$TotalDirIgnored,$TotalDirMismatched,$TotalDirFailed,$TotalDirExtra,$trash = $RoboLogResult[1] | Select-String -Pattern '\d+' -AllMatches | Foreach-Object {$_.Matches} | Foreach-Object {$_.Value}
+$TotalFiles,$TotalFileCopied,$TotalFileIgnored,$TotalFileMismatched,$TotalFileFailed,$TotalFileExtra,$trash = $RoboLogResult[2] | Select-String -Pattern '\d+' -AllMatches | Foreach-Object {$_.Matches} | Foreach-Object {$_.Value}
 
 
 # Manages the success/ERROR message according to the Exit code
 switch ($RoboRun.ExitCode) {
-        0 {$Message = 'SUCCESS - No errors occurred, and no copying was done. The source and destination directory trees are completely synchronized.'}
-        1 {$Message = 'SUCCESS - One or more files were copied successfully.'}
-        2 {$Message = 'SUCCESS - Some Extra files or directories were detected. No files were copied'}
-        3 {$Message = 'SUCCESS - Some files were copied. Additional files were present. No failure was encountered'}
-        4 {$Message = 'SUCCESS - Some Mismatched files or directories were detected.'}
-        5 {$Message = 'SUCCESS - Some files were copied. Some files were mismatched. No failure was encountered.'}
-        6 {$Message = 'SUCCESS - Additional files and mismatched files exist. No files were copied and no failures were encountered.
-                This means that the files already exist in the destination directory'}
-        7 {$Message = 'SUCCESS - Files were copied, a file mismatch was present, and additional files were present.'}
-        8 {$Message = 'SUCCESS - Some files or directories could not be copied (copy errors occurred and the retry limit was exceeded).'}
-        9 {$Message = 'FAILURE - Some files or directories could not be copied (copy errors occurred and the retry limit was exceeded).'}
+     0 {$Message = 'SUCCESS - No errors occurred, and no copying was done. The source and destination directory trees are completely synchronized.'}
+     1 {$Message = 'SUCCESS - One or more files were copied successfully.'}
+     2 {$Message = 'SUCCESS - Some Extra files or directories were detected. No files were copied'}
+     3 {$Message = 'SUCCESS - Some files were copied. Additional files were present. No failure was encountered'}
+     4 {$Message = 'SUCCESS - Some Mismatched files or directories were detected.'}
+     5 {$Message = 'SUCCESS - Some files were copied. Some files were mismatched. No failure was encountered.'}
+     6 {$Message = 'SUCCESS - Additional files and mismatched files exist. No files were copied and no failures were encountered.
+             This means that the files already exist in the destination directory'}
+     7 {$Message = 'SUCCESS - Files were copied, a file mismatch was present, and additional files were present.'}
+     8 {$Message = 'SUCCESS - Some files or directories could not be copied (copy errors occurred and the retry limit was exceeded).'}
+     9 {$Message = 'FAILURE - Some files or directories could not be copied (copy errors occurred and the retry limit was exceeded).'}
     10 {$Message = 'FAILURE - Some files or directories could not be copied (copy errors occurred and the retry limit was exceeded). Some Extra files or directories were detected.'}
     11 {$Message = 'FAILURE - Some files or directories could not be copied (copy errors occurred and the retry limit was exceeded). Some Extra files or directories were detected.'}
     12 {$Message = 'FAILURE - Some files or directories could not be copied (copy errors occurred and the retry limit was exceeded). Some Extra files or directories were detected. Some Mismatched files or directories were detected.'}
@@ -354,13 +355,19 @@ switch ($RoboRun.ExitCode) {
 $Property = [ordered]@{
     'Source' = $Source
     'Destination' = $Destination
-    'FileCount' = $TotalFiles;
     'Command' = "Robocopy.exe " + ($RoboArgs -join " ");
-    'Copied' = $TotalCopied;
-    'Ignored' = $TotalIgnored;
-    'Mismatched' = $TotalMismatched;
-    'Failed' = $TotalFailed;
-    'Extra' = $Extra
+    'DirCount' = $TotalDirs;
+    'FileCount' = $TotalFiles;
+    'DirCopied' = $TotalDirCopied;
+    'FileCopied' = $TotalFileCopied;
+    'DirIgnored' = $TotalDirIgnored;
+    'FileIgnored' = $TotalFileIgnored;
+    'DirMismatched' = $TotalDirMismatched;
+    'FileMismatched' = $TotalFileMismatched;
+    'DirFailed' = $TotalDirFailed;
+    'FileFailed' = $TotalFileFailed;
+    'DirExtra' = $TotalDirExtra;
+    'FileExtra' = $TotalFileExtra;
     'Duration' = (New-TimeSpan -Hours $DurationHH -Minutes $DurationMM -Seconds $DurationSS);
     'Speed' = (Format-SpeedHumanReadable $Speed) + '/s';
     'ExitCode' = $RoboRun.ExitCode;
