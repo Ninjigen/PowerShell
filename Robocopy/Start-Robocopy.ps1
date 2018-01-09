@@ -189,6 +189,16 @@ Function Format-SpeedHumanReadable {
 
 $RobocopyArguments = $Source,$Destination + $Files
 
+$SourceItem = Get-Item -Path $Source -ErrorAction Stop
+if ($SourceItem.Attributes -eq 'Archive') {
+	throw ('InvalidParameterException : [{0}] is not a directory. The Source parameter must be a directory' -f $Source)
+}
+
+$DestinationItem = Get-Item -Path $Destination -ErrorAction Stop
+if ($DestinationItem.Attributes -eq 'Archive') {
+	throw ('InvalidParameterException : [{0}] is not a directory. The Destination parameter must be a directory' -f $Destination)
+}
+
 if ($IncludeSubDirectories) {$RobocopyArguments += '/s'}
 if ($IncludeEmptySubDirectories) {$RobocopyArguments += '/e'}
 if ($Level) {$RobocopyArguments += '/lev:' + $Level}
