@@ -4,9 +4,10 @@ RoboCopy with PowerShell progress.
 .DESCRIPTION
 Performs file copy with RoboCopy. Output from RoboCopy is captured,
 parsed, and returned as Powershell native status and progress.
-.PARAMETER RobocopyArgs
-List of arguments passed directly to Robocopy.
-Must not conflict with defaults: /ndl /TEE /Bytes /NC /nfl /Log
+.PARAMETER Source
+Source folder (must be a folder)
+.PARAMETER Destination
+Destination folder (must be a folder)
 .OUTPUTS
 Returns an object with the status of final copy.
 REMINDER: Any error level below 8 can be considered a success by RoboCopy.
