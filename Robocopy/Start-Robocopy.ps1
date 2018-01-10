@@ -342,9 +342,9 @@ switch ($RoboRun.ExitCode) {
      4 {$Message = 'SUCCESS - Some Mismatched files or directories were detected.'}
      5 {$Message = 'SUCCESS - Some files were copied. Some files were mismatched. No failure was encountered.'}
      6 {$Message = 'SUCCESS - Additional files and mismatched files exist. No files were copied and no failures were encountered.
-             This means that the files already exist in the destination directory'}
+             (the files already exist in the destination directory)'}
      7 {$Message = 'SUCCESS - Files were copied, a file mismatch was present, and additional files were present.'}
-     8 {$Message = 'SUCCESS - Some files or directories could not be copied (copy errors occurred and the retry limit was exceeded).'}
+     8 {$Message = 'FAILURE - Some files or directories could not be copied (copy errors occurred and the retry limit was exceeded).'}
      9 {$Message = 'FAILURE - Some files or directories could not be copied (copy errors occurred and the retry limit was exceeded).'}
     10 {$Message = 'FAILURE - Some files or directories could not be copied (copy errors occurred and the retry limit was exceeded). Some Extra files or directories were detected.'}
     11 {$Message = 'FAILURE - Some files or directories could not be copied (copy errors occurred and the retry limit was exceeded). Some Extra files or directories were detected.'}
